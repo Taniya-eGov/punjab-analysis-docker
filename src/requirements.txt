@@ -1,0 +1,15 @@
+# Core data processing
+pandas==2.0.3
+numpy==1.24.3
+
+# Database connectivity
+psycopg2-binary==2.9.7
+
+# Environment management
+python-dotenv==1.0.0
+
+# Utility libraries
+tqdm==4.65.0
+
+# Configuration management
+PyYAML==6.0.1

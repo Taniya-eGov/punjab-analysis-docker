@@ -1,0 +1,138 @@
+# Punjab Analysis System - GitIgnore
+# Exclude sensitive data, logs, and generated files from version control
+
+# ===== SENSITIVE DATA =====
+# Database credentials and secrets
+secrets/db_config.yaml
+*.env
+.env*
+
+# ===== DATA FILES =====
+# CSV data files (can be large and contain sensitive data)
+data/
+data/*
+*.csv
+
+# Analysis reports and outputs
+local-reports/
+local-reports/*
+*.xlsx
+*.json
+
+# ===== AIRFLOW LOGS & CACHE =====
+# Airflow logs (can be very large)
+airflow/logs/
+airflow/logs/*
+
+# Airflow database
+airflow.db
+airflow.cfg
+
+# Airflow plugins cache
+airflow/plugins/__pycache__/
+
+# ===== DOCKER & SYSTEM =====
+# Docker volumes and containers data
+.docker/
+docker-compose.override.yml
+
+# System files
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# ===== PYTHON =====
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# ===== IDE & EDITORS =====
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ===== LOGS & MONITORING =====
+# Application logs
+*.log
+logs/
+log/
+
+# Performance monitoring
+*.prof
+
+# ===== BACKUP & TEMPORARY =====
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# ===== OS SPECIFIC =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===== CUSTOM PROJECT EXCLUSIONS =====
+# Legacy/test files (optional - uncomment if you want to exclude)
+# PunjabDataAnalysisScript.py
+
+# Test data
+test_data/
+sample_data/
