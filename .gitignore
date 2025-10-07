@@ -1,23 +1,52 @@
 # Punjab Analysis System - GitIgnore
-# Exclude sensitive data, logs, and generated files from version control
+# Kubernetes Airflow Deployment
+# Exclude sensitive data, deprecated files, and generated files from version control
 
 # ===== SENSITIVE DATA =====
-# Database credentials and secrets
-secrets/db_config.yaml
+# Database credentials in root secrets/ (k8s/secrets/ is kept for deployment)
+secrets/
 *.env
 .env*
+# !k8s/secrets/
+
+# ===== DEPRECATED FILES (OLD APPROACH) =====
+# Docker Compose files (now using Kubernetes)
+docker-compose.yml
+docker-compose.override.yml
+
+# Old DAG files
+airflow/dags/punjab_analysis_docker_dag.py
+airflow/dags/punjab_analysis_kubernetes_test_dag.py
+
+# Duplicate/test files
+k8s/punjab_analysis_kubernetes_dag.py
+k8s/04-postgres-external-service.yaml
+
+# Old documentation
+README_OLD.md
+
+# API client (optional - remove if not used)
+api-client/
+
+# Postman collection (optional)
+postmancollection.json
 
 # ===== DATA FILES =====
-# CSV data files (can be large and contain sensitive data)
+# Local data storage (using K8s PVCs instead)
 data/
-data/*
+output/
+local-reports/
+
+# CSV data files (can be large and contain sensitive data)
 *.csv
 
-# Analysis reports and outputs
-local-reports/
-local-reports/*
+# Analysis reports
 *.xlsx
-*.json
+
+# Temporary viewer files
+/tmp/viewer-pod.yaml
+cleanup-project.sh
+kubernetes-airflow-files-analysis.md
 
 # ===== AIRFLOW LOGS & CACHE =====
 # Airflow logs (can be very large)
@@ -34,13 +63,16 @@ airflow/plugins/__pycache__/
 # ===== DOCKER & SYSTEM =====
 # Docker volumes and containers data
 .docker/
-docker-compose.override.yml
 
 # System files
 .DS_Store
 Thumbs.db
 *.tmp
 *.temp
+
+# ===== CLAUDE CODE =====
+# Claude-specific files
+.claude/
 
 # ===== PYTHON =====
 # Python cache files

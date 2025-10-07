@@ -1,0 +1,217 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: punjab-analysis
+  labels:
+    app: airflow
+    component: webserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow
+      component: webserver
+  template:
+    metadata:
+      labels:
+        app: airflow
+        component: webserver
+    spec:
+      serviceAccountName: airflow-worker
+      initContainers:
+      - name: copy-dag
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          cp /tmp/dags/* /opt/airflow/dags/
+          chmod 644 /opt/airflow/dags/*.py
+        volumeMounts:
+        - name: dag-configmap
+          mountPath: /tmp/dags
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+      - name: airflow-init
+        image: apache/airflow:2.10.0-python3.11
+        command:
+        - bash
+        - -c
+        - |
+          airflow db init
+          airflow users create --username admin --password admin123 --firstname Admin --lastname User --role Admin --email admin@example.com || true
+        env:
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5436/airflow"
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "KubernetesExecutor"
+        - name: AIRFLOW__KUBERNETES__NAMESPACE
+          value: "punjab-analysis"
+        - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+          value: "apache/airflow"
+        - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+          value: "2.10.0-python3.11"
+        - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+          value: "true"
+        - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+          value: "true"
+        - name: AIRFLOW__CORE__LOAD_EXAMPLES
+          value: "false"
+        - name: AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
+          value: "/opt/airflow/pod_template.yaml"
+      containers:
+      - name: webserver
+        image: apache/airflow:2.10.0-python3.11
+        command:
+        - airflow
+        - webserver
+        ports:
+        - containerPort: 8080
+        env:
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5436/airflow"
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "KubernetesExecutor"
+        - name: AIRFLOW__KUBERNETES__NAMESPACE
+          value: "punjab-analysis"
+        - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+          value: "apache/airflow"
+        - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+          value: "2.10.0-python3.11"
+        - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+          value: "true"
+        - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+          value: "true"
+        - name: AIRFLOW__CORE__LOAD_EXAMPLES
+          value: "false"
+        - name: AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
+          value: "/opt/airflow/pod_template.yaml"
+        - name: AIRFLOW__WEBSERVER__SECRET_KEY
+          value: "punjab-analysis-secret-key-v3"
+        - name: AIRFLOW__API__AUTH_BACKENDS
+          value: "airflow.api.auth.backend.basic_auth"
+        volumeMounts:
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+          readOnly: true
+        - name: logs-volume
+          mountPath: /opt/airflow/logs
+        - name: pod-template
+          mountPath: /opt/airflow/pod_template.yaml
+          subPath: pod_template.yaml
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+      volumes:
+      - name: dags-volume
+        emptyDir: {}
+      - name: dag-configmap
+        configMap:
+          name: punjab-kubernetes-dag
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: airflow-logs-pvc
+      - name: pod-template
+        configMap:
+          name: pod-template-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: punjab-analysis
+  labels:
+    app: airflow
+    component: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow
+      component: scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow
+        component: scheduler
+    spec:
+      serviceAccountName: airflow-worker
+      initContainers:
+      - name: copy-dag
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          cp /tmp/dags/* /opt/airflow/dags/
+          chmod 644 /opt/airflow/dags/*.py
+        volumeMounts:
+        - name: dag-configmap
+          mountPath: /tmp/dags
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+      containers:
+      - name: scheduler
+        image: apache/airflow:2.10.0-python3.11
+        command:
+        - airflow
+        - scheduler
+        env:
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5436/airflow"
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "KubernetesExecutor"
+        - name: AIRFLOW__KUBERNETES__NAMESPACE
+          value: "punjab-analysis"
+        - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+          value: "apache/airflow"
+        - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+          value: "2.10.0-python3.11"
+        - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+          value: "true"
+        - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+          value: "true"
+        - name: AIRFLOW__CORE__LOAD_EXAMPLES
+          value: "false"
+        - name: AIRFLOW__KUBERNETES__POD_TEMPLATE_FILE
+          value: "/opt/airflow/pod_template.yaml"
+        - name: AIRFLOW__CORE__PARALLELISM
+          value: "4"
+        - name: AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG
+          value: "2"
+        - name: AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG
+          value: "4"
+        volumeMounts:
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+          readOnly: true
+        - name: logs-volume
+          mountPath: /opt/airflow/logs
+        - name: pod-template
+          mountPath: /opt/airflow/pod_template.yaml
+          subPath: pod_template.yaml
+      volumes:
+      - name: dags-volume
+        emptyDir: {}
+      - name: dag-configmap
+        configMap:
+          name: punjab-kubernetes-dag
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: airflow-logs-pvc
+      - name: pod-template
+        configMap:
+          name: pod-template-config
+---

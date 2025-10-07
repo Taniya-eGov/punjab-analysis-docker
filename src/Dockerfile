@@ -40,6 +40,7 @@ COPY extract_data.py .
 COPY analyze_data.py .
 COPY cleanup_data.py .
 COPY config_loader.py .
+COPY process_all_tenants.py .
 
 # Create directories for data and output
 RUN mkdir -p /data /output

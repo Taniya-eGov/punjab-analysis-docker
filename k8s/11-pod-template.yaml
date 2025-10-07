@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: airflow-worker-pod-template
+  namespace: punjab-analysis
+spec:
+  serviceAccountName: airflow-worker
+  containers:
+  - name: base
+    image: apache/airflow:2.10.0-python3.11
+    env:
+    - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+      value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5436/airflow"
+    - name: AIRFLOW__CORE__EXECUTOR
+      value: "KubernetesExecutor"
+    - name: AIRFLOW__KUBERNETES__NAMESPACE
+      value: "punjab-analysis"
+    - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+      value: "apache/airflow"
+    - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+      value: "2.10.0-python3.11"
+    - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+      value: "true"
+    - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+      value: "true"
+    - name: AIRFLOW__CORE__LOAD_EXAMPLES
+      value: "false"
+    volumeMounts:
+    - name: dags-volume
+      mountPath: /opt/airflow/dags
+      readOnly: true
+    - name: logs-volume
+      mountPath: /opt/airflow/logs
+  volumes:
+  - name: dags-volume
+    configMap:
+      name: punjab-kubernetes-dag
+  - name: logs-volume
+    persistentVolumeClaim:
+      claimName: airflow-logs-pvc
+  restartPolicy: Never

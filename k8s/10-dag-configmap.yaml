@@ -1,0 +1,329 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: punjab-kubernetes-dag
+  namespace: punjab-analysis
+data:
+  punjab_analysis_kubernetes_dag.py: |
+    """
+    Punjab Data Analysis Pipeline - Kubernetes Version
+    This version uses KubernetesPodOperator for scalable, distributed processing
+    """
+
+    from datetime import datetime, timedelta
+    from airflow import DAG
+    from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
+    from airflow.operators.python import PythonOperator
+    from airflow.models import Variable
+    from airflow.models.param import Param
+    from kubernetes.client import models as k8s
+    import logging
+
+    # Configure logging
+    logger = logging.getLogger(__name__)
+
+    # Default arguments
+    default_args = {
+        'owner': 'punjab-analytics-team',
+        'depends_on_past': False,
+        'start_date': datetime(2024, 1, 1),
+        'email_on_failure': True,
+        'email_on_retry': False,
+        'retries': 2,
+        'retry_delay': timedelta(minutes=5),
+    }
+
+    # DAG Definition with interactive tenant selection
+    dag = DAG(
+        'punjab_analysis_kubernetes_pipeline',
+        default_args=default_args,
+        description='Punjab property tax analysis using Kubernetes - Scalable and distributed processing. Select tenants to process from the UI.',
+        schedule_interval=None,  # Manual triggering only
+        start_date=datetime(2024, 1, 1),
+        catchup=False,
+        max_active_tasks=10,  # Increased for Kubernetes parallel processing
+        tags=['punjab', 'kubernetes', 'property-tax', 'scalable'],
+        params={
+            "process_adampur": Param(
+                default=True,
+                type="boolean",
+                description="Process pb.adampur tenant",
+            ),
+            "process_samana": Param(
+                default=True,
+                type="boolean",
+                description="Process pb.samana tenant",
+            ),
+            "process_amloh": Param(
+                default=True,
+                type="boolean",
+                description="Process pb.amloh tenant",
+            ),
+        },
+        render_template_as_native_obj=True,
+    )
+
+    # Configuration
+    DEFAULT_TENANT_IDS = ['pb.adampur', 'pb.samana', 'pb.amloh']
+    DOCKER_IMAGE = "punjab-analysis:v3.0.0"
+    NAMESPACE = "punjab-analysis"
+
+    # Resource Configuration for Airflow
+    def get_resource_config(memory_request="512Mi", memory_limit="2Gi", cpu_request="500m", cpu_limit="2000m"):
+        """Get standard resource configuration for pods"""
+        return {
+            "request_memory": memory_request,
+            "request_cpu": cpu_request,
+            "limit_memory": memory_limit,
+            "limit_cpu": cpu_limit
+        }
+
+    # Volume Configuration
+    def get_volume_mounts():
+        """Get standard volume mounts for Punjab analysis pods"""
+        return [
+            k8s.V1VolumeMount(
+                name="data-storage",
+                mount_path="/data",
+            ),
+            k8s.V1VolumeMount(
+                name="output-storage",
+                mount_path="/output",
+            ),
+            k8s.V1VolumeMount(
+                name="secrets-storage",
+                mount_path="/run/secrets",
+                read_only=True,
+            ),
+        ]
+
+    def get_volumes():
+        """Get standard volumes for Punjab analysis pods"""
+        return [
+            k8s.V1Volume(
+                name="data-storage",
+                persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="punjab-data-pvc"
+                ),
+            ),
+            k8s.V1Volume(
+                name="output-storage",
+                persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="punjab-output-pvc"
+                ),
+            ),
+            k8s.V1Volume(
+                name="secrets-storage",
+                persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="punjab-secrets-pvc"
+                ),
+            ),
+        ]
+
+    def get_tenant_ids(**context):
+        """Get tenant IDs from DAG run configuration or boolean params"""
+        dag_run = context.get('dag_run')
+        tenant_ids = []
+
+        # Try to get from DAG run conf first (command line triggers with array)
+        if dag_run and dag_run.conf and 'tenant_ids' in dag_run.conf:
+            tenant_ids = dag_run.conf.get('tenant_ids')
+            logger.info(f"Using tenant IDs from DAG run configuration: {tenant_ids}")
+        else:
+            # Build tenant list from boolean params
+            params = context.get('params', {})
+
+            if params.get('process_adampur', True):
+                tenant_ids.append('pb.adampur')
+            if params.get('process_samana', True):
+                tenant_ids.append('pb.samana')
+            if params.get('process_amloh', True):
+                tenant_ids.append('pb.amloh')
+
+            logger.info(f"Built tenant IDs from boolean params: {tenant_ids}")
+
+        # Fallback to all tenants if none selected
+        if not tenant_ids:
+            tenant_ids = DEFAULT_TENANT_IDS
+            logger.info(f"No tenants selected, using all: {tenant_ids}")
+
+        # Store tenant IDs in XCom for other tasks to use
+        context['ti'].xcom_push(key='tenant_ids', value=tenant_ids)
+        return tenant_ids
+
+    # Start task - gets and validates tenant configuration
+    start_task = PythonOperator(
+        task_id='start_pipeline',
+        python_callable=get_tenant_ids,
+        dag=dag,
+    )
+
+    # Single task to process all selected tenants
+    process_tenants_task = KubernetesPodOperator(
+        task_id='process_selected_tenants',
+        name='process-tenants',
+        namespace=NAMESPACE,
+        image=DOCKER_IMAGE,
+        cmds=["python3", "-c"],
+        arguments=[
+            "import os, json; "
+            "tenant_ids = json.loads(os.getenv('TENANT_IDS', '[]')); "
+            "print(f'Processing tenants: {tenant_ids}'); "
+            "[os.system(f'MODE=extract TENANT_ID={t} OUTPUT_DIR=/data python main.py && MODE=analyze TENANT_ID={t} DATA_DIR=/data OUTPUT_DIR=/output python main.py') for t in tenant_ids]"
+        ],
+
+        # Environment variables
+        env_vars={
+            'TENANT_IDS': "{{ ti.xcom_pull(task_ids='start_pipeline', key='tenant_ids') | tojson }}",
+            'CONFIG_PATH': '/run/secrets/db_config.yaml',
+            'ENVIRONMENT': 'production',
+            'DEBUG_MODE': 'true',
+        },
+
+        # Volume mounts
+        volume_mounts=get_volume_mounts(),
+        volumes=get_volumes(),
+
+        # Kubernetes configuration
+        service_account_name="airflow-worker",
+        is_delete_operator_pod=True,
+        get_logs=True,
+        log_events_on_failure=True,
+
+        # Pod security and execution settings
+        security_context=k8s.V1SecurityContext(
+            run_as_user=1000,
+            run_as_group=1000,
+            run_as_non_root=True,
+        ),
+
+        dag=dag,
+    )
+
+    # Generate summary report
+    generate_summary_task = KubernetesPodOperator(
+        task_id='generate_summary_report',
+        name='summary-report',
+        namespace=NAMESPACE,
+        image=DOCKER_IMAGE,
+        cmds=["python", "generate_summary.py"],
+        arguments=[],
+
+        # Environment variables
+        env_vars={
+            'OUTPUT_DIR': '/output',
+            'CONFIG_PATH': '/run/secrets/db_config.yaml',
+            'ENVIRONMENT': 'production',
+        },
+
+        # Volume mounts
+        volume_mounts=[
+            k8s.V1VolumeMount(
+                name="output-storage",
+                mount_path="/output",
+            ),
+        ],
+        volumes=[
+            k8s.V1Volume(
+                name="output-storage",
+                persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="punjab-output-pvc"
+                ),
+            ),
+        ],
+
+        # Kubernetes configuration
+        service_account_name="airflow-worker",
+        is_delete_operator_pod=True,
+        get_logs=True,
+        log_events_on_failure=True,
+
+        # Pod security and execution settings
+        security_context=k8s.V1SecurityContext(
+            run_as_user=1000,
+            run_as_group=1000,
+            run_as_non_root=True,
+        ),
+
+        dag=dag,
+    )
+
+    # Completion task
+    complete_task = PythonOperator(
+        task_id='pipeline_complete',
+        python_callable=lambda **context: logger.info(
+            f"🎉 Punjab Analysis Kubernetes Pipeline completed! "
+            f"Execution date: {context['ds']}, Run ID: {context['run_id']}"
+        ),
+        dag=dag,
+    )
+
+    # Cleanup task using KubernetesPodOperator
+    cleanup_task = KubernetesPodOperator(
+        task_id='cleanup_old_data',
+        name='cleanup-data',
+        namespace=NAMESPACE,
+        image=DOCKER_IMAGE,
+        cmds=["python", "cleanup_data.py"],
+        arguments=[],
+
+        # Environment variables for cleanup
+        env_vars={
+            'DATA_DIR': '/data',
+            'MAX_AGE_HOURS': '24',
+            'DRY_RUN': 'false',
+            'CONFIG_PATH': '/run/secrets/db_config.yaml',
+            'ENVIRONMENT': 'production',
+        },
+
+        # Resource configuration for cleanup (light workload)
+        # resources temporarily removed for compatibility
+
+        # Volume mounts (only need data and secrets)
+        volume_mounts=[
+            k8s.V1VolumeMount(
+                name="data-storage",
+                mount_path="/data",
+            ),
+            k8s.V1VolumeMount(
+                name="secrets-storage",
+                mount_path="/run/secrets",
+                read_only=True,
+            ),
+        ],
+        volumes=[
+            k8s.V1Volume(
+                name="data-storage",
+                persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="punjab-data-pvc"
+                ),
+            ),
+            k8s.V1Volume(
+                name="secrets-storage",
+                persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name="punjab-secrets-pvc"
+                ),
+            ),
+        ],
+
+        # Kubernetes configuration
+        service_account_name="airflow-worker",
+        is_delete_operator_pod=True,
+        get_logs=True,
+        log_events_on_failure=True,
+
+        # Pod security and execution settings
+        security_context=k8s.V1SecurityContext(
+            run_as_user=1000,
+            run_as_group=1000,
+            run_as_non_root=True,
+        ),
+
+        # Restart policy
+
+        dag=dag,
+    )
+
+    # Set up complete dependency chain - simple flow like Docker DAG
+    start_task >> process_tenants_task >> generate_summary_task >> complete_task >> cleanup_task
+---

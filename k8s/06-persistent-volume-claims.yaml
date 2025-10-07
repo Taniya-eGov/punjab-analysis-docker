@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: punjab-data-pvc
+  namespace: punjab-analysis
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+  selector:
+    matchLabels:
+      app: punjab-analysis
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: punjab-output-pvc
+  namespace: punjab-analysis
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+  selector:
+    matchLabels:
+      app: punjab-analysis
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: punjab-secrets-pvc
+  namespace: punjab-analysis
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+  selector:
+    matchLabels:
+      app: punjab-analysis
+---

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: punjab-analysis
+  labels:
+    name: punjab-analysis
+    app: punjab-analysis-system
+---

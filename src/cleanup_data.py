@@ -1,12 +1,14 @@
 """
 Punjab Data Cleanup Module
 Removes old extraction data to manage disk space
+Supports both time-based and immediate cleanup modes
 """
 
 import os
 import shutil
 import time
 import logging
+import json
 from datetime import datetime, timedelta
 from config_loader import ConfigLoader
 
@@ -32,11 +34,39 @@ class PunjabDataCleanup:
         self.max_age_hours = int(os.getenv('MAX_AGE_HOURS', str(cleanup_config['max_age_hours'])))
         self.dry_run = os.getenv('DRY_RUN', str(cleanup_config['dry_run'])).lower() == 'true'
 
+        # New: Cleanup mode configuration
+        self.cleanup_mode = os.getenv('CLEANUP_MODE', 'time-based')  # 'immediate' or 'time-based'
+
+        # New: Specific tenant IDs to clean (for immediate mode)
+        tenant_ids_str = os.getenv('TENANT_IDS', '[]')
+        try:
+            self.tenant_ids = json.loads(tenant_ids_str)
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse TENANT_IDS: {tenant_ids_str}, using empty list")
+            self.tenant_ids = []
+
         logger.info(f"🧹 Cleanup initialized")
         logger.info(f"🌍 Environment: {environment}")
         logger.info(f"📁 Data directory: {self.data_dir}")
-        logger.info(f"⏰ Max age: {self.max_age_hours} hours")
+        logger.info(f"🔧 Cleanup mode: {self.cleanup_mode}")
+        if self.cleanup_mode == 'immediate':
+            logger.info(f"📋 Target tenants: {self.tenant_ids}")
+        else:
+            logger.info(f"⏰ Max age: {self.max_age_hours} hours")
         logger.info(f"🔍 Dry run mode: {self.dry_run}")
+
+    def tenant_id_to_dir_name(self, tenant_id):
+        """Convert tenant ID to directory name by stripping pb. prefix
+
+        Args:
+            tenant_id: Tenant ID like 'pb.amloh' or 'pb.adampur'
+
+        Returns:
+            Directory name like 'amloh' or 'adampur'
+        """
+        if tenant_id.startswith('pb.'):
+            return tenant_id[3:]  # Remove 'pb.' prefix
+        return tenant_id
 
     def is_directory_old(self, dir_path):
         """Check if directory is older than max_age_hours"""
@@ -83,8 +113,13 @@ class PunjabDataCleanup:
             size_bytes /= 1024.0
         return f"{size_bytes:.1f} TB"
 
-    def cleanup_tenant_data(self, tenant_name):
-        """Clean up old data for a specific tenant"""
+    def cleanup_tenant_data(self, tenant_name, force_cleanup=False):
+        """Clean up data for a specific tenant
+
+        Args:
+            tenant_name: Name of the tenant directory to clean
+            force_cleanup: If True, cleanup regardless of age (immediate mode)
+        """
         tenant_dir = os.path.join(self.data_dir, tenant_name)
 
         if not os.path.exists(tenant_dir):
@@ -93,19 +128,24 @@ class PunjabDataCleanup:
 
         logger.info(f"Checking cleanup for tenant: {tenant_name}")
 
-        # Check if tenant directory is old
-        if self.is_directory_old(tenant_dir):
+        # Determine if we should delete this directory
+        should_delete = force_cleanup or self.is_directory_old(tenant_dir)
+
+        if should_delete:
             dir_size = self.get_directory_size(tenant_dir)
             size_str = self.format_size(dir_size)
 
-            logger.info(f"Directory {tenant_dir} is old (size: {size_str})")
+            if force_cleanup:
+                logger.info(f"🎯 Immediate cleanup for {tenant_dir} (size: {size_str})")
+            else:
+                logger.info(f"⏰ Directory {tenant_dir} is old (size: {size_str})")
 
             if self.dry_run:
                 logger.info(f"[DRY RUN] Would delete: {tenant_dir} ({size_str})")
             else:
                 try:
                     shutil.rmtree(tenant_dir)
-                    logger.info(f"✅ Deleted old data: {tenant_dir} ({size_str} freed)")
+                    logger.info(f"✅ Deleted data: {tenant_dir} ({size_str} freed)")
                 except Exception as e:
                     logger.error(f"❌ Failed to delete {tenant_dir}: {e}")
         else:
@@ -124,18 +164,43 @@ class PunjabDataCleanup:
         total_size_before = self.get_directory_size(self.data_dir)
         logger.info(f"Total data size before cleanup: {self.format_size(total_size_before)}")
 
-        # Get all tenant directories
-        tenant_dirs = [d for d in os.listdir(self.data_dir)
-                      if os.path.isdir(os.path.join(self.data_dir, d))]
+        # Determine cleanup strategy based on mode
+        if self.cleanup_mode == 'immediate':
+            # Immediate mode: Clean only specified tenants
+            logger.info(f"🎯 Running immediate cleanup for specified tenants")
+            if not self.tenant_ids:
+                logger.warning("No tenant IDs specified for immediate cleanup")
+                return
 
-        logger.info(f"Found {len(tenant_dirs)} tenant directories: {tenant_dirs}")
+            logger.info(f"Cleaning {len(self.tenant_ids)} tenant(s): {self.tenant_ids}")
 
-        # Clean up each tenant
-        for tenant_name in tenant_dirs:
-            try:
-                self.cleanup_tenant_data(tenant_name)
-            except Exception as e:
-                logger.error(f"Error cleaning up {tenant_name}: {e}")
+            for tenant_id in self.tenant_ids:
+                try:
+                    # Convert tenant ID to directory name (pb.amloh -> amloh)
+                    dir_name = self.tenant_id_to_dir_name(tenant_id)
+                    logger.info(f"Converting tenant ID '{tenant_id}' to directory name '{dir_name}'")
+
+                    # Force cleanup regardless of age
+                    self.cleanup_tenant_data(dir_name, force_cleanup=True)
+                except Exception as e:
+                    logger.error(f"Error cleaning up {tenant_id}: {e}")
+
+        else:
+            # Time-based mode: Clean all tenants older than max_age_hours
+            logger.info(f"⏰ Running time-based cleanup (age > {self.max_age_hours} hours)")
+
+            # Get all tenant directories
+            tenant_dirs = [d for d in os.listdir(self.data_dir)
+                          if os.path.isdir(os.path.join(self.data_dir, d))]
+
+            logger.info(f"Found {len(tenant_dirs)} tenant directories: {tenant_dirs}")
+
+            # Clean up each tenant based on age
+            for tenant_name in tenant_dirs:
+                try:
+                    self.cleanup_tenant_data(tenant_name, force_cleanup=False)
+                except Exception as e:
+                    logger.error(f"Error cleaning up {tenant_name}: {e}")
 
         # Get total size after cleanup
         total_size_after = self.get_directory_size(self.data_dir)

@@ -1,0 +1,15 @@
+{
+  "punjab_tenant_ids": [
+    "pb.adampur"
+  ],
+  "k8s_namespace": "default",
+  "punjab_notification_emails": [
+    "admin@punjab.gov.in",
+    "analytics@punjab.gov.in"
+  ],
+  "punjab_slack_webhook": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+  "pipeline_version": "v3.0.0",
+  "max_parallel_tasks": 5,
+  "retry_count": 2,
+  "timeout_seconds": 3600
+}
