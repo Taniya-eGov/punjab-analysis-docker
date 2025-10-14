@@ -1,0 +1,671 @@
+{
+    "info": {
+        "name": "Punjab Analysis Kubernetes DAG - Airflow API",
+        "_postman_id": "k8s-punjab-analysis-2025",
+        "description": "Complete collection of Airflow REST API endpoints for monitoring and managing the Punjab Analysis Kubernetes Pipeline",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. DAG Management",
+            "item": [
+                {
+                    "name": "Get DAG Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}"]
+                        },
+                        "description": "Get DAG configuration, tasks, and metadata"
+                    }
+                },
+                {
+                    "name": "Pause/Unpause DAG",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"is_paused\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}"]
+                        },
+                        "description": "Set is_paused to true to pause, false to unpause"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2. DAG Run Triggers",
+            "item": [
+                {
+                    "name": "Trigger DAG - Single Tenant",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"dag_run_id\": \"api_run_adampur_{{$timestamp}}\",\n  \"conf\": {\n    \"tenant_ids\": [\"pb.adampur\"]\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns"]
+                        },
+                        "description": "Trigger DAG for a single tenant (pb.adampur)"
+                    }
+                },
+                {
+                    "name": "Trigger DAG - Multiple Tenants",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"dag_run_id\": \"api_run_multi_{{$timestamp}}\",\n  \"conf\": {\n    \"tenant_ids\": [\"pb.adampur\", \"pb.samana\", \"pb.amloh\"]\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns"]
+                        },
+                        "description": "Trigger DAG for multiple tenants"
+                    }
+                },
+                {
+                    "name": "Trigger DAG - All Default Tenants",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"dag_run_id\": \"api_run_default_{{$timestamp}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns"]
+                        },
+                        "description": "Trigger with no conf - uses default tenants from DAG params"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3. DAG Run Monitoring",
+            "item": [
+                {
+                    "name": "Get DAG Run Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}"]
+                        },
+                        "description": "Get status, execution_date, state (running/success/failed)"
+                    }
+                },
+                {
+                    "name": "List Recent DAG Runs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns?limit=10&order_by=-execution_date",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns"],
+                            "query": [
+                                {"key": "limit", "value": "10"},
+                                {"key": "order_by", "value": "-execution_date"}
+                            ]
+                        },
+                        "description": "Get last 10 DAG runs ordered by execution date"
+                    }
+                },
+                {
+                    "name": "List Failed DAG Runs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns?state=failed&limit=10",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns"],
+                            "query": [
+                                {"key": "state", "value": "failed"},
+                                {"key": "limit", "value": "10"}
+                            ]
+                        },
+                        "description": "Get failed DAG runs for troubleshooting"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4. Task Instance Monitoring",
+            "item": [
+                {
+                    "name": "Get All Task Instances",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances"]
+                        },
+                        "description": "Get status of all tasks (start_pipeline, extract_data, analyze_data, pipeline_complete, cleanup_processed_data)"
+                    }
+                },
+                {
+                    "name": "Get Task Instance - Start Pipeline",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/start_pipeline",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "start_pipeline"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Task Instance - Extract Data",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/extract_data",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "extract_data"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Task Instance - Analyze Data",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/analyze_data",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "analyze_data"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Task Instance - Cleanup",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/cleanup_processed_data",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "cleanup_processed_data"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5. Task Logs",
+            "item": [
+                {
+                    "name": "Get Extract Task Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/extract_data/logs/1",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "extract_data", "logs", "1"]
+                        },
+                        "description": "Get logs for data extraction task (try_number=1)"
+                    }
+                },
+                {
+                    "name": "Get Analyze Task Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/analyze_data/logs/1",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "analyze_data", "logs", "1"]
+                        },
+                        "description": "Get logs for data analysis task"
+                    }
+                },
+                {
+                    "name": "Get Cleanup Task Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/cleanup_processed_data/logs/1",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "cleanup_processed_data", "logs", "1"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "6. XCom Data",
+            "item": [
+                {
+                    "name": "Get Tenant IDs from XCom",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/start_pipeline/xcomEntries/tenant_ids",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "start_pipeline", "xcomEntries", "tenant_ids"]
+                        },
+                        "description": "Get the tenant_ids list stored by start_pipeline task"
+                    }
+                },
+                {
+                    "name": "List All XCom Entries",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}/taskInstances/start_pipeline/xcomEntries",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}", "taskInstances", "start_pipeline", "xcomEntries"]
+                        },
+                        "description": "List all XCom entries for the start_pipeline task"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "7. Kubernetes Pod Monitoring",
+            "item": [
+                {
+                    "name": "Get Running Kubernetes Pods",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "kubectl get pods -n {{k8s_namespace}} -l dag_id={{dag_id}}",
+                            "host": ["kubectl"],
+                            "path": ["get", "pods"]
+                        },
+                        "description": "⚠️ CLI Command (not REST API): kubectl get pods -n punjab-analysis -l dag_id=punjab_analysis_kubernetes_pipeline"
+                    }
+                },
+                {
+                    "name": "Get Pod Logs - Extract",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "kubectl logs -n {{k8s_namespace}} -l task_id=extract_data --tail=100",
+                            "host": ["kubectl"],
+                            "path": ["logs"]
+                        },
+                        "description": "⚠️ CLI Command: kubectl logs -n punjab-analysis -l task_id=extract_data --tail=100"
+                    }
+                },
+                {
+                    "name": "Get Pod Logs - Analyze",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "kubectl logs -n {{k8s_namespace}} -l task_id=analyze_data --tail=100",
+                            "host": ["kubectl"],
+                            "path": ["logs"]
+                        },
+                        "description": "⚠️ CLI Command: kubectl logs -n punjab-analysis -l task_id=analyze_data --tail=100"
+                    }
+                },
+                {
+                    "name": "Describe Pod for Debugging",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "kubectl describe pod {{pod_name}} -n {{k8s_namespace}}",
+                            "host": ["kubectl"],
+                            "path": ["describe", "pod"]
+                        },
+                        "description": "⚠️ CLI Command: kubectl describe pod <pod-name> -n punjab-analysis"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "8. DAG Run Actions",
+            "item": [
+                {
+                    "name": "Clear Task Instance",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"dry_run\": false,\n  \"reset_dag_runs\": false,\n  \"only_failed\": false,\n  \"only_running\": false,\n  \"include_subdags\": false,\n  \"include_parentdag\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/clearTaskInstances",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "clearTaskInstances"]
+                        },
+                        "description": "Clear task instances to retry"
+                    }
+                },
+                {
+                    "name": "Delete DAG Run",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/dags/{{dag_id}}/dagRuns/{{dag_run_id}}",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "dags", "{{dag_id}}", "dagRuns", "{{dag_run_id}}"]
+                        },
+                        "description": "Delete a DAG run"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "9. Airflow Variables",
+            "item": [
+                {
+                    "name": "Get Docker Image Variable",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/variables/punjab_analysis_image",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "variables", "punjab_analysis_image"]
+                        },
+                        "description": "Get current Docker image from Airflow Variable"
+                    }
+                },
+                {
+                    "name": "Set Docker Image Variable",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"key\": \"punjab_analysis_image\",\n  \"value\": \"punjab-analysis:v1.2.0\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/variables/punjab_analysis_image",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "variables", "punjab_analysis_image"]
+                        },
+                        "description": "Update Docker image version"
+                    }
+                },
+                {
+                    "name": "Get Namespace Variable",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/variables/punjab_analysis_namespace",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "variables", "punjab_analysis_namespace"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "10. Health & Monitoring",
+            "item": [
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{airflow_url}}/health",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["health"]
+                        },
+                        "description": "Check Airflow health status"
+                    }
+                },
+                {
+                    "name": "Get Pool Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Basic {{auth}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{airflow_url}}/api/v1/pools",
+                            "host": ["{{airflow_url}}"],
+                            "path": ["api", "v1", "pools"]
+                        },
+                        "description": "Get pool information for resource monitoring"
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "airflow_url",
+            "value": "http://192.168.49.2:30082",
+            "type": "default"
+        },
+        {
+            "key": "dag_id",
+            "value": "punjab_analysis_kubernetes_pipeline",
+            "type": "default"
+        },
+        {
+            "key": "dag_run_id",
+            "value": "api_run_adampur_1234567890",
+            "type": "default"
+        },
+        {
+            "key": "auth",
+            "value": "YWRtaW46YWRtaW4xMjM=",
+            "type": "default",
+            "description": "Base64 encoded admin:admin123"
+        },
+        {
+            "key": "k8s_namespace",
+            "value": "punjab-analysis",
+            "type": "default"
+        },
+        {
+            "key": "pod_name",
+            "value": "extract-all-tenants-xxxxx",
+            "type": "default",
+            "description": "Replace with actual pod name from kubectl get pods"
+        }
+    ]
+}

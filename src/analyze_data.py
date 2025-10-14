@@ -18,6 +18,23 @@ from config_loader import ConfigLoader
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def format_size(size_bytes):
+    """Format file size in human-readable format"""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} TB"
+
+def get_file_size(file_path):
+    """Get file size and return formatted string"""
+    try:
+        size = os.path.getsize(file_path)
+        return size, format_size(size)
+    except Exception as e:
+        logger.warning(f"Could not get size for {file_path}: {e}")
+        return 0, "unknown"
+
 class PunjabDataAnalyzer:
     def __init__(self):
         """Initialize analyzer using ConfigLoader for consistent configuration"""
@@ -605,17 +622,27 @@ class PunjabDataAnalyzer:
         return df_final
 
     def save_report(self, df_result):
-        """Save analysis results to CSV file"""
+        """Save analysis results to XLSX file"""
         if df_result.empty:
             logger.warning("No data to save")
             return
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"Punjab_Data_Analysis_{self.tenant_name}_{timestamp}.csv"
+        filename = f"Punjab_Data_Analysis_{self.tenant_name}_{timestamp}.xlsx"
         output_path = os.path.join(self.output_dir, filename)
 
-        df_result.to_csv(output_path, index=False)
-        logger.info(f"Report saved to: {output_path}")
+        df_result.to_excel(output_path, index=False, engine='openpyxl')
+
+        # Log file size
+        file_size_bytes, file_size_str = get_file_size(output_path)
+        logger.info("")
+        logger.info("=" * 70)
+        logger.info(f"📊 ANALYSIS COMPLETE - Output file created")
+        logger.info(f"📁 File: {filename}")
+        logger.info(f"📦 Size: {file_size_str}")
+        logger.info(f"📍 Location: {output_path}")
+        logger.info(f"📈 Records: {len(df_result):,} properties")
+        logger.info("=" * 70)
 
         if self.debug_mode:
             logger.info(f"Report preview:\n{df_result.head()}")

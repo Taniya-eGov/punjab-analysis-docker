@@ -14,6 +14,35 @@ from config_loader import ConfigLoader
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def format_size(size_bytes):
+    """Format file size in human-readable format"""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} TB"
+
+def get_file_size(file_path):
+    """Get file size and return formatted string"""
+    try:
+        size = os.path.getsize(file_path)
+        return size, format_size(size)
+    except Exception as e:
+        logger.warning(f"Could not get size for {file_path}: {e}")
+        return 0, "unknown"
+
+def get_directory_size(directory):
+    """Get total size of all files in directory"""
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            try:
+                total_size += os.path.getsize(filepath)
+            except Exception as e:
+                logger.warning(f"Could not get size for {filepath}: {e}")
+    return total_size, format_size(total_size)
+
 class PunjabDataExtractor:
     def __init__(self):
         """Initialize extractor using ConfigLoader for secure credential management"""
@@ -79,7 +108,10 @@ class PunjabDataExtractor:
                 df = pd.read_sql_query(query, conn, params=[self.tenant_id])
                 output_file = os.path.join(self.tenant_dir, f"{table}.csv")
                 df.to_csv(output_file, index=False)
-                logger.info(f"Saved {len(df)} records to {output_file}")
+
+                # Log file size
+                file_size_bytes, file_size_str = get_file_size(output_file)
+                logger.info(f"✅ Saved {len(df)} records to {table}.csv (Size: {file_size_str})")
 
             except Exception as e:
                 logger.error(f"Failed to extract {table}: {e}")
@@ -108,18 +140,7 @@ class PunjabDataExtractor:
             cursor = conn.cursor()
             cursor.execute(count_query, [self.tenant_id])
             total_records = cursor.fetchone()[0]
-            logger.info(f"Total records in {table}: {total_records}")
-
-            # Debug: Check if table exists and has any data
-            cursor.execute(f"SELECT COUNT(*) FROM {table}")
-            total_in_table = cursor.fetchone()[0]
-            logger.info(f"Total records in {table} (all tenants): {total_in_table}")
-
-            # Debug: Check distinct tenantids in the table
-            if total_in_table > 0:
-                cursor.execute(f"SELECT DISTINCT tenantid FROM {table} LIMIT 10")
-                tenant_samples = cursor.fetchall()
-                logger.info(f"Sample tenantids in {table}: {[t[0] for t in tenant_samples]}")
+            logger.info(f"Total records for {self.tenant_id} in {table}: {total_records:,}")
 
             # Extract in chunks
             chunk_number = 0
@@ -146,11 +167,17 @@ class PunjabDataExtractor:
                     output_file = os.path.join(table_dir, f"output_{chunk_number}.csv")
                     df_chunk.to_csv(output_file, index=False)
 
-                    logger.info(f"Chunk {chunk_number}: {len(df_chunk)} records → {output_file}")
+                    # Log chunk with size
+                    chunk_size_bytes, chunk_size_str = get_file_size(output_file)
+                    logger.info(f"Chunk {chunk_number}: {len(df_chunk)} records → output_{chunk_number}.csv ({chunk_size_str})")
 
                     offset += self.chunk_size
                     chunk_number += 1
                     pbar.update(len(df_chunk))
+
+            # Log total size for this table
+            table_size_bytes, table_size_str = get_directory_size(table_dir)
+            logger.info(f"✅ {table} complete: {chunk_number} chunks, Total size: {table_size_str}")
 
             cursor.close()
 
@@ -173,7 +200,14 @@ class PunjabDataExtractor:
 
             # Close connection
             conn.close()
-            logger.info("Data extraction completed successfully")
+
+            # Log total extraction size
+            total_size_bytes, total_size_str = get_directory_size(self.tenant_dir)
+            logger.info("")
+            logger.info("=" * 70)
+            logger.info(f"📦 EXTRACTION COMPLETE - Total data size: {total_size_str}")
+            logger.info(f"📁 Location: {self.tenant_dir}")
+            logger.info("=" * 70)
 
         except Exception as e:
             logger.error(f"Extraction failed: {e}")

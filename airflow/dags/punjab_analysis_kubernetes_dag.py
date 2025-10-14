@@ -8,8 +8,10 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 from airflow.operators.python import PythonOperator
+from airflow.models import Variable
 from kubernetes.client import models as k8s
 import logging
+import os
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -41,8 +43,30 @@ dag = DAG(
 
 # Configuration
 DEFAULT_TENANT_IDS = ['pb.adampur', 'pb.samana', 'pb.amloh']
-DOCKER_IMAGE = "punjab-analysis:v3.0.0"
-NAMESPACE = "punjab-analysis"
+
+# Docker image - can be overridden via Airflow Variable or environment variable
+# Priority: Airflow Variable > Environment Variable > Default
+try:
+    DOCKER_IMAGE = Variable.get("punjab_analysis_image", default_var=None)
+    logger.info(f"Using Docker image from Airflow Variable: {DOCKER_IMAGE}")
+except:
+    DOCKER_IMAGE = None
+
+if not DOCKER_IMAGE:
+    DOCKER_IMAGE = os.getenv("PUNJAB_DOCKER_IMAGE", "punjab-analysis:latest")
+    logger.info(f"Using Docker image from environment/default: {DOCKER_IMAGE}")
+
+# Namespace - can be overridden via Airflow Variable or environment variable
+# Priority: Airflow Variable > Environment Variable > Default
+try:
+    NAMESPACE = Variable.get("punjab_analysis_namespace", default_var=None)
+    logger.info(f"Using namespace from Airflow Variable: {NAMESPACE}")
+except:
+    NAMESPACE = None
+
+if not NAMESPACE:
+    NAMESPACE = os.getenv("AIRFLOW__KUBERNETES__NAMESPACE", "punjab-analysis")
+    logger.info(f"Using namespace from environment/default: {NAMESPACE}")
 
 # Kubernetes Resource Configuration
 def get_container_resources(memory_request="512Mi", memory_limit="2Gi", cpu_request="500m", cpu_limit="2000m"):
@@ -181,6 +205,7 @@ extract_task = KubernetesPodOperator(
     is_delete_operator_pod=True,
     get_logs=True,
     log_events_on_failure=True,
+    image_pull_policy="Never",  # Use local image, don't pull from registry
 
     # Pod security and execution settings
     security_context=k8s.V1SecurityContext(
@@ -230,6 +255,86 @@ analyze_task = KubernetesPodOperator(
     is_delete_operator_pod=True,
     get_logs=True,
     log_events_on_failure=True,
+    image_pull_policy="Never",  # Use local image, don't pull from registry
+
+    # Pod security and execution settings
+    security_context=k8s.V1SecurityContext(
+        run_as_user=1000,
+        run_as_group=1000,
+        run_as_non_root=True,
+    ),
+
+    dag=dag,
+)
+
+# Upload to Filestore Task - uploads analysis results
+upload_task = KubernetesPodOperator(
+    task_id='upload_to_filestore',
+    name='upload-to-filestore',
+    namespace=NAMESPACE,
+    image=DOCKER_IMAGE,
+    cmds=["python", "upload_to_filestore.py"],
+    arguments=[],
+
+    # Environment variables for filestore upload
+    env_vars={
+        'OUTPUT_DIR': '/output',
+        'TENANT_IDS': '{{ ti.xcom_pull(task_ids="start_pipeline", key="tenant_ids") | tojson }}',
+        'EXECUTION_DATE': '{{ ds }}',
+        'CONFIG_PATH': '/app/secrets/db_config.yaml',
+        'ENVIRONMENT': 'production',
+
+        # Filestore configuration
+        'FILESTORE_ENABLED': '{{ var.value.get("filestore_enabled", "false") }}',
+        'FILESTORE_TYPE': '{{ var.value.get("filestore_type", "http") }}',
+        'FILESTORE_URL': '{{ var.value.get("filestore_url", "http://localhost:8089/filestore/v1/files") }}',
+        'FILESTORE_AUTH_TOKEN': '{{ var.value.get("filestore_auth_token", "") }}',
+        'FILESTORE_TENANT_ID': '{{ var.value.get("filestore_tenant_id", "pb") }}',
+        'FILESTORE_MODULE': '{{ var.value.get("filestore_module", "punjab-analysis") }}',
+    },
+
+    # Resource configuration for upload (light workload)
+    container_resources=get_container_resources(
+        memory_request="512Mi",
+        memory_limit="2Gi",
+        cpu_request="500m",
+        cpu_limit="2000m"
+    ),
+
+    # Volume mounts - need output and secrets
+    volume_mounts=[
+        k8s.V1VolumeMount(
+            name="output-storage",
+            mount_path="/output",
+            read_only=True,  # Read-only since we're only uploading
+        ),
+        k8s.V1VolumeMount(
+            name="secrets-storage",
+            mount_path="/app/secrets",
+            read_only=True,
+        ),
+    ],
+    volumes=[
+        k8s.V1Volume(
+            name="output-storage",
+            persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                claim_name="punjab-output-pvc"
+            ),
+        ),
+        k8s.V1Volume(
+            name="secrets-storage",
+            persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                claim_name="punjab-secrets-pvc"
+            ),
+        ),
+    ],
+
+    # Kubernetes configuration
+    service_account_name="airflow-worker",
+    is_delete_operator_pod=True,
+    get_logs=True,
+    log_events_on_failure=True,
+    image_pull_policy="Never",  # Use local image, don't pull from registry
 
     # Pod security and execution settings
     security_context=k8s.V1SecurityContext(
@@ -313,6 +418,7 @@ cleanup_task = KubernetesPodOperator(
     is_delete_operator_pod=True,
     get_logs=True,
     log_events_on_failure=True,
+    image_pull_policy="Never",  # Use local image, don't pull from registry
 
     # Pod security and execution settings
     security_context=k8s.V1SecurityContext(
@@ -325,4 +431,5 @@ cleanup_task = KubernetesPodOperator(
 )
 
 # Set up linear dependency chain
-start_task >> extract_task >> analyze_task >> complete_task >> cleanup_task
+# Analysis outputs are uploaded to Filestore, then pipeline completes, then cleanup
+start_task >> extract_task >> analyze_task >> upload_task >> complete_task >> cleanup_task
