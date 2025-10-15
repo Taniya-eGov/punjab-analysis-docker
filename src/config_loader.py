@@ -17,10 +17,10 @@ class ConfigLoader:
         Initialize config loader
 
         Args:
-            config_path: Path to YAML config file (defaults to /run/secrets/db_config.yaml)
+            config_path: Path to YAML config file (defaults to /app/secrets/db_config.yaml)
             environment: Environment name (development/staging/production)
         """
-        self.config_path = config_path or os.getenv('CONFIG_PATH', '/run/secrets/db_config.yaml')
+        self.config_path = config_path or os.getenv('CONFIG_PATH', '/app/secrets/db_config.yaml')
         self.environment = environment or os.getenv('ENVIRONMENT', 'development')
         self.config = self._load_config()
 
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     try:
         # Test with local file (development)
         config_loader = ConfigLoader(
-            config_path='/home/admin1/Desktop/punjab-analysis-fresh/secrets/db_config.yaml',
+            config_path='/home/admin1/Desktop/airflow-punjab-analysis/k8s/secrets/db_config.yaml',
             environment='development'
         )
 

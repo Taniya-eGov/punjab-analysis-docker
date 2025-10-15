@@ -61,8 +61,8 @@ ENV OUTPUT_DIR=/data
 ENV DATA_DIR=/data
 ENV CHUNK_SIZE=50000
 ENV CREATEDTIME_LIMIT=1757269799000
-ENV CONFIG_PATH=/run/secrets/db_config.yaml
-ENV ENVIRONMENT=production
+ENV CONFIG_PATH=/app/secrets/db_config.yaml
+ENV ENVIRONMENT=development
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

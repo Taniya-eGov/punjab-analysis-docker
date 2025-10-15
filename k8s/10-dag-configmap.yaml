@@ -92,7 +92,7 @@ data:
             ),
             k8s.V1VolumeMount(
                 name="secrets-storage",
-                mount_path="/run/secrets",
+                mount_path="/app/secrets",
                 read_only=True,
             ),
         ]
@@ -327,3 +327,4 @@ data:
     # Set up complete dependency chain - simple flow like Docker DAG
     start_task >> process_tenants_task >> generate_summary_task >> complete_task >> cleanup_task
 ---
+

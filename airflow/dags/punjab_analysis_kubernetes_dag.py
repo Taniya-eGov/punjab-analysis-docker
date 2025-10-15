@@ -184,7 +184,7 @@ extract_task = KubernetesPodOperator(
         'OUTPUT_DIR': '/data',
         'EXECUTION_DATE': '{{ ds }}',
         'CONFIG_PATH': '/app/secrets/db_config.yaml',
-        'ENVIRONMENT': 'production',
+        'ENVIRONMENT': 'development',
         'DEBUG_MODE': 'true',
     },
 
@@ -234,7 +234,7 @@ analyze_task = KubernetesPodOperator(
         'OUTPUT_DIR': '/output',
         'EXECUTION_DATE': '{{ ds }}',
         'CONFIG_PATH': '/app/secrets/db_config.yaml',
-        'ENVIRONMENT': 'production',
+        'ENVIRONMENT': 'development',
         'DEBUG_MODE': 'true',
     },
 
@@ -282,7 +282,7 @@ upload_task = KubernetesPodOperator(
         'TENANT_IDS': '{{ ti.xcom_pull(task_ids="start_pipeline", key="tenant_ids") | tojson }}',
         'EXECUTION_DATE': '{{ ds }}',
         'CONFIG_PATH': '/app/secrets/db_config.yaml',
-        'ENVIRONMENT': 'production',
+        'ENVIRONMENT': 'development',
 
         # Filestore configuration
         'FILESTORE_ENABLED': '{{ var.value.get("filestore_enabled", "false") }}',
@@ -374,7 +374,7 @@ cleanup_task = KubernetesPodOperator(
         'MAX_AGE_HOURS': '0',  # Clean immediately, not after 24 hours
         'DRY_RUN': 'false',
         'CONFIG_PATH': '/app/secrets/db_config.yaml',
-        'ENVIRONMENT': 'production',
+        'ENVIRONMENT': 'development',
         'EXECUTION_DATE': '{{ ds }}',
     },
 

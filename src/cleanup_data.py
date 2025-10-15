@@ -20,8 +20,8 @@ class PunjabDataCleanup:
     def __init__(self):
         """Initialize cleanup using ConfigLoader for consistent configuration"""
         # Load configuration from YAML file
-        config_path = os.getenv('CONFIG_PATH', '/run/secrets/db_config.yaml')
-        environment = os.getenv('ENVIRONMENT', 'production')
+        config_path = os.getenv('CONFIG_PATH', '/app/secrets/db_config.yaml')
+        environment = os.getenv('ENVIRONMENT', 'development')
 
         self.config_loader = ConfigLoader(config_path=config_path, environment=environment)
 
