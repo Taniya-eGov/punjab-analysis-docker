@@ -119,7 +119,7 @@ def get_volumes():
     ]
 
 def get_tenant_ids(**context):
-    """Get tenant IDs from DAG run configuration, params, or use defaults"""
+    """Get tenant IDs from DAG run configuration, params, or use defaults with validation"""
     dag_run = context.get('dag_run')
     tenant_ids = None
 
@@ -150,6 +150,33 @@ def get_tenant_ids(**context):
     # Validate tenant IDs format
     if not isinstance(tenant_ids, list):
         raise ValueError(f"tenant_ids must be a list, got: {type(tenant_ids)}")
+
+    # VALIDATION: Simple format validation only
+    # Data existence will be checked during extraction phase
+    logger.info("Validating tenant ID format...")
+
+    for tenant_id in tenant_ids:
+        # Check basic format
+        if not tenant_id or not isinstance(tenant_id, str):
+            raise ValueError(f"Invalid tenant ID: {tenant_id}. Must be a non-empty string.")
+
+        # Must start with 'pb.'
+        if not tenant_id.startswith('pb.'):
+            raise ValueError(
+                f"Invalid tenant format: '{tenant_id}'. Must start with 'pb.'\n"
+                f"Example: pb.adampur, pb.samana, pb.amloh"
+            )
+
+        # Must have format pb.{name} (exactly 2 parts)
+        parts = tenant_id.split('.')
+        if len(parts) != 2 or not parts[1]:
+            raise ValueError(
+                f"Invalid tenant format: '{tenant_id}'. Expected format: 'pb.{{tenant_name}}'\n"
+                f"Example: pb.adampur"
+            )
+
+    logger.info(f"✅ Tenant format validation passed for: {tenant_ids}")
+    logger.info("ℹ️  Data existence will be checked during extraction phase")
 
     # Store tenant IDs in XCom for other tasks to use
     context['ti'].xcom_push(key='tenant_ids', value=tenant_ids)

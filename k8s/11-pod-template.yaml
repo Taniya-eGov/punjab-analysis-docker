@@ -7,7 +7,8 @@ spec:
   serviceAccountName: airflow-worker
   containers:
   - name: base
-    image: apache/airflow:2.10.0-python3.11
+    image: punjab-analysis:v3.0.0
+    imagePullPolicy: Never
     env:
     - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
       value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5436/airflow"
@@ -15,22 +16,29 @@ spec:
       value: "KubernetesExecutor"
     - name: AIRFLOW__KUBERNETES__NAMESPACE
       value: "punjab-analysis"
-    - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
-      value: "apache/airflow"
-    - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
-      value: "2.10.0-python3.11"
     - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
       value: "true"
     - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
       value: "true"
     - name: AIRFLOW__CORE__LOAD_EXAMPLES
       value: "false"
+    - name: CONFIG_PATH
+      value: "/app/secrets/db_config.yaml"
+    - name: ENVIRONMENT
+      value: "production"
     volumeMounts:
     - name: dags-volume
       mountPath: /opt/airflow/dags
       readOnly: true
     - name: logs-volume
       mountPath: /opt/airflow/logs
+    - name: data-volume
+      mountPath: /data
+    - name: output-volume
+      mountPath: /output
+    - name: secrets-volume
+      mountPath: /app/secrets
+      readOnly: true
   volumes:
   - name: dags-volume
     configMap:
@@ -38,4 +46,13 @@ spec:
   - name: logs-volume
     persistentVolumeClaim:
       claimName: airflow-logs-pvc
+  - name: data-volume
+    persistentVolumeClaim:
+      claimName: punjab-data-pvc
+  - name: output-volume
+    persistentVolumeClaim:
+      claimName: punjab-output-pvc
+  - name: secrets-volume
+    persistentVolumeClaim:
+      claimName: punjab-secrets-pvc
   restartPolicy: Never
